@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,12 +15,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
     <!-- MediaPipe Hands -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <!-- Markdown Renderer -->
     <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js" crossorigin="anonymous"></script>
-    
+
     <style>
         :root {
             --card-width: clamp(120px, 20vw, 200px);
@@ -48,8 +51,9 @@
         }
 
         /* Intro Animation Class - if needed, but we will use JS interpolation */
-        
-        body, html {
+
+        body,
+        html {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -62,14 +66,28 @@
         }
 
         /* Background Effects */
+        /* 隐藏原来的星空画布，如果你以后想换回来，可以删掉这行 */
         #stars-canvas {
+            display: none;
+        }
+
+        /* 新增：视频背景容器样式 */
+        #video-bg-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
-            opacity: 0.8;
+            /* 保证在最底层 */
+            overflow: hidden;
+        }
+
+        #video-background {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* 关键属性：让视频像背景图片一样剪裁铺满，不会拉伸变形 */
         }
 
         #fog-layer {
@@ -78,7 +96,7 @@
             left: 0;
             width: 100%;
             height: 40%;
-            background: linear-gradient(to top, rgba(10,10,30, 0.9), transparent);
+            background: linear-gradient(to top, rgba(10, 10, 30, 0.9), transparent);
             z-index: 1;
             pointer-events: none;
         }
@@ -122,7 +140,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            perspective: 1200px; /* Increased perspective for deeper look */
+            perspective: 1200px;
+            /* Increased perspective for deeper look */
             z-index: 10;
             display: flex;
             flex-direction: column;
@@ -148,14 +167,26 @@
             width: var(--card-width);
             height: var(--card-height);
             transform-style: preserve-3d;
-            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s;
+            /* 1. 改用更灵敏、具有缓动弹性的 cubic-bezier 贝塞尔曲线 */
+            transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s, filter 0.3s;
             cursor: pointer;
             border-radius: 15px;
+            /* 2. 初始给一点点微弱的阴影，让它立体 */
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.6));
         }
 
+        /* 3. 新增：当手势或键盘快速滑动时，通过 JS 动态给牌加上这个类，实现“电影级”运动模糊 */
+        .card-wrapper.moving-blur {
+            filter: blur(1.5px) brightness(0.9);
+            transition: transform 0.1s linear, filter 0.2s;
+            /* 滑动时响应要极快 */
+        }
+
+        /* 4. 让当前被选中的中心牌有更璀璨的神圣光芒 */
         .card-wrapper.selected {
-            box-shadow: 0 0 30px var(--accent-glow);
-            z-index: 100;
+            box-shadow: 0 0 35px var(--accent-glow), 0 0 15px #fff;
+            filter: drop-shadow(0 0 25px rgba(212, 175, 55, 0.8)) brightness(1.1);
+            z-index: 1000 !important;
         }
 
         .card-inner {
@@ -178,25 +209,24 @@
             height: 100%;
             backface-visibility: hidden;
             border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
             overflow: hidden;
             border: 2px solid #333;
         }
 
         .card-back {
-            background: repeating-linear-gradient(
-                45deg,
-                #1a1a2e,
-                #1a1a2e 10px,
-                #16213e 10px,
-                #16213e 20px
-            );
-            background-image: url('https://www.transparenttextures.com/patterns/black-thread.png'); /* Fallback or simple pattern */
+            background: repeating-linear-gradient(45deg,
+                    #1a1a2e,
+                    #1a1a2e 10px,
+                    #16213e 10px,
+                    #16213e 20px);
+            background-image: url('https://www.transparenttextures.com/patterns/black-thread.png');
+            /* Fallback or simple pattern */
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
+
         /* Elaborate back design using CSS pseudo-elements */
         .card-back::after {
             content: '✦';
@@ -239,7 +269,7 @@
             text-shadow: 0 0 10px var(--accent-gold);
             margin-top: 20px;
         }
-        
+
         h1 {
             margin: 0;
             font-weight: 300;
@@ -274,7 +304,7 @@
             transition: all 0.3s;
             text-transform: uppercase;
             letter-spacing: 2px;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             border-radius: 30px;
         }
 
@@ -293,7 +323,8 @@
             border: 1px solid var(--accent-gold);
             opacity: 0.5;
             border-radius: 10px;
-            transform: scaleX(-1); /* Mirror */
+            transform: scaleX(-1);
+            /* Mirror */
             z-index: 100;
         }
 
@@ -311,9 +342,10 @@
             border-radius: 20px;
             color: #eee;
             overflow-y: auto;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             pointer-events: auto;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
             z-index: 50;
         }
 
@@ -321,7 +353,7 @@
             line-height: 1.6;
             font-size: 1.1rem;
         }
-        
+
         #interpretation-content h3 {
             color: var(--accent-gold);
             border-bottom: 1px solid #333;
@@ -335,9 +367,9 @@
             pointer-events: auto;
             z-index: 100;
         }
-        
+
         #api-token {
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             border: 1px solid #555;
             color: white;
             padding: 5px 10px;
@@ -345,7 +377,7 @@
             width: 150px;
             transition: width 0.3s;
         }
-        
+
         #api-token:focus {
             width: 300px;
             border-color: var(--accent-gold);
@@ -353,20 +385,21 @@
         }
 
         /* Hand Gesture Guide */
-            #gesture-guide {
-                position: absolute;
-                bottom: 150px;
-                left: 50%;
-                transform: translateX(-50%);
-                display: none; /* Removed based on user request */
-                gap: 20px;
-                opacity: 0;
-                transition: opacity 0.5s;
-                pointer-events: none;
-                width: 100%;
-                justify-content: center;
-            }
-        
+        #gesture-guide {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            /* Removed based on user request */
+            gap: 20px;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            width: 100%;
+            justify-content: center;
+        }
+
         .guide-zone {
             position: absolute;
             top: 0;
@@ -379,14 +412,25 @@
             color: rgba(212, 175, 55, 0.5);
             opacity: 0;
             transition: opacity 0.3s;
-            pointer-events: none; /* Ensure no blocking */
+            pointer-events: none;
+            /* Ensure no blocking */
         }
-        
-        #zone-left { left: 0; justify-content: flex-start; padding-left: 50px; }
-        #zone-right { right: 0; justify-content: flex-end; padding-right: 50px; }
-        #zone-center { 
-            left: 30%; 
-            width: 40%; 
+
+        #zone-left {
+            left: 0;
+            justify-content: flex-start;
+            padding-left: 50px;
+        }
+
+        #zone-right {
+            right: 0;
+            justify-content: flex-end;
+            padding-right: 50px;
+        }
+
+        #zone-center {
+            left: 30%;
+            width: 40%;
             align-items: flex-end;
             padding-bottom: 180px;
         }
@@ -395,17 +439,26 @@
             opacity: 1;
             text-shadow: 0 0 20px var(--accent-gold);
         }
-        
+
         /* New Pulse Animation */
         @keyframes pulseRing {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; border-width: 5px; }
-            100% { transform: translate(-50%, -50%) scale(2.0); opacity: 0; border-width: 0px; }
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 1;
+                border-width: 5px;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(2.0);
+                opacity: 0;
+                border-width: 0px;
+            }
         }
-        
+
         .guide-icon {
             width: 60px;
             height: 60px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -413,7 +466,7 @@
             font-size: 24px;
             border: 1px solid transparent;
         }
-        
+
         .guide-icon.active {
             border-color: var(--accent-gold);
             background: rgba(212, 175, 55, 0.2);
@@ -433,9 +486,10 @@
             transform: translate(-50%, -50%);
             box-shadow: 0 0 15px var(--accent-glow);
             transition: width 0.2s, height 0.2s, background-color 0.2s;
-            display: none; /* Hidden until hand detected */
+            display: none;
+            /* Hidden until hand detected */
         }
-        
+
         /* Removed grabbing state as requested */
         /* #hand-cursor.grabbing { ... } */
 
@@ -452,7 +506,10 @@
         }
 
         @keyframes fadeTrail {
-            to { opacity: 0; transform: scale(0.2); }
+            to {
+                opacity: 0;
+                transform: scale(0.2);
+            }
         }
 
         .particle {
@@ -468,8 +525,15 @@
         }
 
         @keyframes riseAndFade {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -150px) scale(0.2); opacity: 0; }
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translate(-50%, -150px) scale(0.2);
+                opacity: 0;
+            }
         }
 
         /* Charge Progress Bar */
@@ -480,11 +544,12 @@
             border-radius: 3px;
             margin: 10px auto;
             overflow: hidden;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 0 10px rgba(255,255,255,0.1);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
         }
-        
+
         #charge-progress-bar {
             width: 0%;
             height: 100%;
@@ -513,7 +578,8 @@
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            display: none; /* Hidden initially */
+            display: none;
+            /* Hidden initially */
             gap: 20px;
             z-index: 50;
             pointer-events: none;
@@ -527,7 +593,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.3);
             transition: all 0.5s;
         }
 
@@ -541,7 +607,7 @@
         .picked-slot.filled {
             border-style: solid;
             border-color: var(--accent-gold);
-            background: rgba(0,0,0,0.6);
+            background: rgba(0, 0, 0, 0.6);
         }
 
         .mini-card {
@@ -550,13 +616,20 @@
             border-radius: 8px;
             background-size: cover;
             background-position: center;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             animation: flyIn 0.5s ease-out;
         }
 
         @keyframes flyIn {
-            from { transform: translateY(-300px) scale(1.5); opacity: 0; }
-            to { transform: translateY(0) scale(1); opacity: 1; }
+            from {
+                transform: translateY(-300px) scale(1.5);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
         }
 
         /* Loading Spinner */
@@ -571,7 +644,15 @@
             margin: 20px auto;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
 
         /* Settings Icon */
         #settings-btn {
@@ -584,14 +665,16 @@
             cursor: pointer;
             z-index: 1000;
             transition: transform 0.5s;
-            pointer-events: auto; /* Enable clicks */
+            pointer-events: auto;
+            /* Enable clicks */
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 50%;
             border: 1px solid transparent;
         }
+
         #settings-btn:hover {
             transform: rotate(90deg);
             border-color: var(--accent-gold);
@@ -602,11 +685,15 @@
         #settings-modal {
             display: none;
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
             z-index: 3000;
             backdrop-filter: blur(5px);
         }
+
         .settings-content {
             background: #111;
             border: 2px solid var(--accent-gold);
@@ -617,8 +704,9 @@
             border-radius: 10px;
             text-align: center;
             color: #eee;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
         }
+
         .settings-content input {
             width: 80%;
             padding: 10px;
@@ -629,6 +717,7 @@
             border-radius: 5px;
             font-size: 1rem;
         }
+
         .settings-content a {
             color: var(--accent-gold);
             text-decoration: underline;
@@ -638,23 +727,29 @@
         ::-webkit-scrollbar {
             width: 8px;
         }
+
         ::-webkit-scrollbar-track {
             background: #111;
         }
+
         ::-webkit-scrollbar-thumb {
             background: #333;
             border-radius: 4px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
-
     </style>
 </head>
+
 <body>
 
     <!-- Background Canvas -->
-    <canvas id="stars-canvas"></canvas>
+    <div id="video-bg-container">
+        <!-- 你可以在 src="" 里面填写你的视频相对路径（如 assets/bg.mp4）或网络视频链接 -->
+        <video id="video-background" autoplay loop muted playsinline src="背景.mp4"></video>
+    </div>
     <div id="fog-layer"></div>
 
     <div id="asset-loader">
@@ -670,7 +765,8 @@
     <div id="ui-layer">
         <div id="settings-btn">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                <path
+                    d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
             </svg>
         </div>
         <div id="hand-cursor"></div>
@@ -702,7 +798,9 @@
 
         <div id="controls">
             <button id="start-btn" class="btn" style="display:none">开始体验</button>
-            <button id="interpret-btn" class="btn" style="display:none; background: linear-gradient(45deg, #d4af37, #f0e68c); color: #000; font-weight: bold; box-shadow: 0 0 20px rgba(212,175,55,0.6);">🔮 解读命运</button>
+            <button id="interpret-btn" class="btn"
+                style="display:none; background: linear-gradient(45deg, #d4af37, #f0e68c); color: #000; font-weight: bold; box-shadow: 0 0 20px rgba(212,175,55,0.6);">🔮
+                解读命运</button>
             <div class="spinner" id="loading-spinner"></div>
         </div>
     </div>
@@ -721,7 +819,8 @@
         <h2 style="color: var(--accent-gold); text-align: center; margin-top: 0;">命运启示</h2>
         <div id="interpretation-content"></div>
         <div style="text-align: center; margin-top: 30px;">
-            <button class="btn" onclick="document.getElementById('interpretation-modal').style.display='none'">关闭</button>
+            <button class="btn"
+                onclick="document.getElementById('interpretation-modal').style.display='none'">关闭</button>
         </div>
     </div>
 
@@ -736,66 +835,55 @@
             <input type="password" id="api-token-input" placeholder="sk-...">
             <div id="token-status" style="font-size: 0.8rem; margin: 10px 0; min-height: 1.2em;"></div>
             <button id="save-settings-btn" class="btn">保存配置</button>
-            <button id="close-settings-btn" class="btn" style="background: transparent; border: 1px solid #444; margin-top: 10px;">关闭</button>
+            <button id="close-settings-btn" class="btn"
+                style="background: transparent; border: 1px solid #444; margin-top: 10px;">关闭</button>
         </div>
     </div>
 
     <script>
-        // --- 1. Card Data & Configuration ---
+       // --- 1. Card Data & Configuration ---
         const ASSETS_PATH = 'assets/tarot/pkt/';
-        
-        // Helper to generate full card list
+
         const generateCards = () => {
             const cards = [];
-            
-            // Major Arcana
             const majorNames = [
-                "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor", 
-                "The Hierophant", "The Lovers", "The Chariot", "Strength", "The Hermit", 
-                "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance", 
-                "The Devil", "The Tower", "The Star", "The Moon", "The Sun", 
+                "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor",
+                "The Hierophant", "The Lovers", "The Chariot", "Strength", "The Hermit",
+                "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance",
+                "The Devil", "The Tower", "The Star", "The Moon", "The Sun",
                 "Judgement", "The World"
             ];
-            
+
             majorNames.forEach((name, i) => {
                 const id = `ar${String(i).padStart(2, '0')}`;
                 cards.push({ id, name, type: 'major', img: `${ASSETS_PATH}${id}.jpg` });
             });
 
-            // Minor Arcana
             const suits = [
-                { code: 'wa', name: 'Wands' },
-                { code: 'cu', name: 'Cups' },
-                { code: 'sw', name: 'Swords' },
-                { code: 'pe', name: 'Pentacles' }
+                { code: 'wa', name: 'Wands' }, { code: 'cu', name: 'Cups' },
+                { code: 'sw', name: 'Swords' }, { code: 'pe', name: 'Pentacles' }
             ];
-            
+
             const ranks = [
-                { code: 'ac', name: 'Ace' },
-                { code: '02', name: 'Two' }, { code: '03', name: 'Three' }, { code: '04', name: 'Four' },
-                { code: '05', name: 'Five' }, { code: '06', name: 'Six' }, { code: '07', name: 'Seven' },
-                { code: '08', name: 'Eight' }, { code: '09', name: 'Nine' }, { code: '10', name: 'Ten' },
-                { code: 'pa', name: 'Page' }, { code: 'kn', name: 'Knight' }, { code: 'qu', name: 'Queen' }, { code: 'ki', name: 'King' }
+                { code: 'ac', name: 'Ace' }, { code: '02', name: 'Two' }, { code: '03', name: 'Three' }, 
+                { code: '04', name: 'Four' }, { code: '05', name: 'Five' }, { code: '06', name: 'Six' }, 
+                { code: '07', name: 'Seven' }, { code: '08', name: 'Eight' }, { code: '09', name: 'Nine' }, 
+                { code: '10', name: 'Ten' }, { code: 'pa', name: 'Page' }, { code: 'kn', name: 'Knight' }, 
+                { code: 'qu', name: 'Queen' }, { code: 'ki', name: 'King' }
             ];
 
             suits.forEach(suit => {
                 ranks.forEach(rank => {
                     const id = `${suit.code}${rank.code}`;
-                    cards.push({
-                        id,
-                        name: `${rank.name} of ${suit.name}`,
-                        type: 'minor',
-                        img: `${ASSETS_PATH}${id}.jpg`
-                    });
+                    cards.push({ id, name: `${rank.name} of ${suit.name}`, type: 'minor', img: `${ASSETS_PATH}${id}.jpg` });
                 });
             });
-
             return cards;
         };
 
         const FULL_DECK = generateCards();
         let currentDeck = [];
-        let pickedCards = []; // { card, reversed, position }
+        let pickedCards = []; 
         let assetsReady = false;
         let assetsFailed = false;
         let cameraReady = false;
@@ -884,7 +972,7 @@
                 updateIdleStatus();
             }
         }
-        
+
         // --- 2. Game State & Logic ---
         const STATE = {
             IDLE: 'IDLE',
@@ -895,64 +983,17 @@
         };
 
         let currentState = STATE.IDLE;
-        
-        // Navigation State
-        let currentIndex = 0;   // Current float index (physics object)
-        let velocity = 0;       // Current scroll velocity
-        let isDragging = false; // Is the user actively moving?
-        
+        let currentIndex = 0;   
+        let velocity = 0;       
+        let isDragging = false; 
+
         // --- 3. 3D Scene & Rendering ---
-        const scene = document.getElementById('scene');
-        
+        const sceneElement = document.getElementById('scene');
+
         function initStars() {
-            const canvas = document.getElementById('stars-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            let width, height, stars = [];
-            
-            function resize() {
-                width = window.innerWidth;
-                height = window.innerHeight;
-                canvas.width = width;
-                canvas.height = height;
-                stars = [];
-                for(let i=0; i<200; i++) {
-                    stars.push({
-                        x: Math.random() * width,
-                        y: Math.random() * height,
-                        size: Math.random() * 2,
-                        opacity: Math.random(),
-                        speed: Math.random() * 0.5
-                    });
-                }
-            }
-            
-            function animate() {
-                ctx.clearRect(0, 0, width, height);
-                ctx.fillStyle = 'white';
-                
-                stars.forEach(star => {
-                    ctx.globalAlpha = star.opacity;
-                    ctx.beginPath();
-                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    star.y -= star.speed;
-                    if(star.y < 0) star.y = height;
-                    
-                    // Twinkle
-                    if(Math.random() > 0.95) star.opacity = Math.random();
-                });
-                
-                requestAnimationFrame(animate);
-            }
-            
-            window.addEventListener('resize', resize);
-            resize();
-            animate();
+            // 保留空白函数以防调用报错，实际背景由视频接管
         }
 
-        // Shuffle Array
         function shuffle(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -965,46 +1006,37 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'card-wrapper';
             wrapper.dataset.index = index;
-            
+
             const inner = document.createElement('div');
             inner.className = 'card-inner';
-            
+
             const back = document.createElement('div');
             back.className = 'card-face card-back';
-            
+
             const front = document.createElement('div');
             front.className = 'card-face card-front';
             front.style.backgroundImage = `url('${card.img}')`;
-            
+
             inner.appendChild(back);
             inner.appendChild(front);
             wrapper.appendChild(inner);
-            
+
             return wrapper;
         }
 
         function renderDeck() {
-            scene.innerHTML = '';
-            
-            // Render logic based on state
+            sceneElement.innerHTML = '';
             if (currentState === STATE.PICKING || currentState === STATE.INTRO) {
-                // Render a fan or spread of cards
-                // For simplicity and "coolness", we use a horizontal carousel
-                
                 currentDeck.forEach((card, i) => {
                     const el = createCardElement(card, i);
-                    scene.appendChild(el);
+                    sceneElement.appendChild(el);
                 });
                 updateCardPositions();
             } else if (currentState === STATE.REVEALING || currentState === STATE.INTERPRETING) {
-                // Render only picked cards centered
                 pickedCards.forEach((item, i) => {
                     const el = createCardElement(item.card, i);
-                    // Add picked specific styles if needed
                     el.classList.add('picked-card');
-                    // Immediately flip if revealed
-                    // Logic handled in updatePickedPositions
-                    scene.appendChild(el);
+                    sceneElement.appendChild(el);
                 });
                 updatePickedPositions();
             }
@@ -1015,113 +1047,115 @@
 
             const cards = document.querySelectorAll('.card-wrapper');
             const width = window.innerWidth;
-            
-            // Responsive Layout Calculation
-            // Base gap + factor of screen width
-            // This ensures on wide screens cards are spread out more
+
             const cardWidthVar = getComputedStyle(document.documentElement).getPropertyValue('--card-width').trim();
             const cardWidthPx = parseFloat(cardWidthVar) || 200;
             const compactMedia = window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches;
             const isMobile = width <= 480 || compactMedia;
+
             const gap = Math.min(
                 Math.max(cardWidthPx * (isMobile ? 0.85 : 1.15), width * (isMobile ? 0.12 : 0.18)),
                 cardWidthPx * (isMobile ? 1.25 : 2)
             );
-            
-            // Calculate how many cards to show based on screen width
-            // Due to Z-depth, cards shrink, so we need more margin
-            // If gap is 300, and width is 1920 (half 960), we need ~3.2 cards.
-            // But Z-depth makes them squeeze. Let's be generous.
+
             const visibleSideCount = Math.ceil((width / 2) / (gap * 0.5)) + 3;
-            
+            const isSpeeding = Math.abs(velocity) > 0.03;
+
             cards.forEach((card, i) => {
-                // Check if card is already picked
                 if (card.classList.contains('picked')) {
-                    return; // Skip positioning logic for picked cards
+                    card.style.display = 'none';
+                    return;
                 }
 
                 const dist = i - currentIndex;
-                
-                if (Math.abs(dist) > visibleSideCount) {
+                const absDist = Math.abs(dist);
+
+                if (absDist > visibleSideCount) {
                     card.style.display = 'none';
                     return;
                 } else {
                     card.style.display = 'block';
                 }
 
-                const x = dist * gap;
-                // Reduce Z-depth dropoff to keep peripheral cards larger/closer
-                const z = -Math.pow(Math.abs(dist), 1.3) * 50; 
-                
-                // Reduced rotation to keep back visible (prevent face peeking)
-                // Clamp rotation to max 45 degrees
-                let rotateY = dist * 5; 
-                if (rotateY > 45) rotateY = 45;
-                if (rotateY < -45) rotateY = -45;
-                
-                let scale = 1;
                 const isSelected = Math.round(currentIndex) === i;
-                
-                if (Math.abs(dist) < 0.5) {
-                    const selectedScaleBase = isMobile ? 1.06 : 1.2;
-                    const selectedScaleFalloff = isMobile ? 0.22 : 0.4;
-                    scale = selectedScaleBase - Math.abs(dist) * selectedScaleFalloff;
+
+                // 【修复核心】：把 z 的计算移到 isSelected 变量定义之后，消除致命的 ReferenceError 报错
+                const z = -Math.pow(absDist, 1.6) * 90 - (isSelected ? 0 : 50);
+                const x = dist * gap * (1 + absDist * 0.05);
+                const y = absDist * 12;
+
+                let rotateY = dist * 14;
+                if (rotateY > 65) rotateY = 65;
+                if (rotateY < -65) rotateY = -65;
+                const rotateZ = dist * -1.5;
+
+                let scale = 1;
+
+                if (isSpeeding && absDist < 4) {
+                    card.classList.add('moving-blur');
+                } else {
+                    card.classList.remove('moving-blur');
+                }
+
+                if (absDist < 0.5) {
+                    const selectedScaleBase = isMobile ? 1.15 : 1.35;
+                    const selectedScaleFalloff = isMobile ? 0.3 : 0.6;
+                    scale = selectedScaleBase - absDist * selectedScaleFalloff;
                     card.style.zIndex = 1000;
                 } else {
-                    // Less aggressive scaling down for side cards
-                    scale = 1 - Math.min(Math.abs(dist) * 0.08, 0.4);
-                    card.style.zIndex = 1000 - Math.floor(Math.abs(dist) * 10);
+                    scale = 1 - Math.min(absDist * 0.12, 0.5);
+                    card.style.zIndex = 1000 - Math.floor(absDist * 50);
                 }
-                
+
                 if (isSelected) {
-                     card.classList.add('selected');
+                    card.classList.add('selected');
                 } else {
-                     card.classList.remove('selected');
+                    card.classList.remove('selected');
                 }
 
                 if (isFistHeld && chargeTargetIndex !== null && i === chargeTargetIndex) {
                     scale *= chargeExtraScale;
                     card.style.zIndex = 2000;
                 }
-                
-                card.style.transform = `translateX(${x}px) translateZ(${z}px) rotateY(${rotateY}deg) scale(${scale})`;
+
+                card.style.transform = `
+                    translateX(${x}px) 
+                    translateY(${y}px)
+                    translateZ(${z}px) 
+                    rotateY(${rotateY}deg) 
+                    rotateZ(${rotateZ}deg) 
+                    scale(${scale})
+                `;
             });
         }
 
         function updatePickedPositions() {
             const cards = document.querySelectorAll('.card-wrapper');
-            
-            // Responsive spacing for picked cards
             const width = window.innerWidth;
             const compactMedia = window.matchMedia && window.matchMedia('(orientation: landscape) and (max-height: 520px)').matches;
             const spread = (width <= 480 || compactMedia) ? Math.min(width * 0.18, 180) : Math.min(width * 0.3, 400);
-            
+
             const positions = [-spread, 0, spread];
             const labels = ["过去", "现在", "未来"];
-            
+
             cards.forEach((card, i) => {
                 const x = positions[i];
-                // If this card is revealed, flip it
                 if (i < pickedCards.length) {
                     const picked = pickedCards[i];
-                    // Reveal animation
                     setTimeout(() => {
                         card.classList.add('flipped');
-                        // Add reversed visual if needed
                         if (picked.reversed) {
-                            // Find the front face and rotate it
                             const front = card.querySelector('.card-front');
                             if (front) {
-                                front.style.transform = 'rotateX(180deg)'; // Flip upside down
+                                front.style.transform = 'rotateX(180deg)'; 
                             }
                         }
-                    }, i * 500 + 500); // Staggered reveal
+                    }, i * 500 + 500);
                 }
-                
+
                 card.style.transform = `translateX(${x}px) scale(1.1)`;
                 card.style.zIndex = 10;
-                
-                // Add label if not exists
+
                 if (!card.querySelector('.label')) {
                     const label = document.createElement('div');
                     label.className = 'label';
@@ -1140,86 +1174,62 @@
 
         // --- 4. Controls & Hand Gestures ---
         let lastHandX = -1;
-        let lastHandY = -1; // Track Y for cursor
-        
-        // Selection State
+        let lastHandY = -1; 
+
         let fistHoldStart = 0;
         let isFistHeld = false;
         let lockedSelectIndex = null;
         let chargeTargetIndex = null;
         let chargeExtraScale = 1;
-        const SELECTION_HOLD_TIME = 1000; // 1 second as requested
+        const SELECTION_HOLD_TIME = 1000; 
 
-        // Interpretation Gesture State
         let isPalmHeld = false;
         let palmHoldStart = 0;
         const INTERPRET_HOLD_TIME = 1500;
 
-        // Physics Constants
-        const FRICTION = 0.92;
-        const SENSITIVITY = 1.0; // Reduced for slower, controlled scrolling
-        const MAX_VELOCITY = 0.25; // Lower cap speed
-        
+        const FRICTION = 0.94; 
+        const MAX_SCROLL_SPEED = 0.2; 
+
         function isFist(landmarks) {
-            // Check fingertips (8, 12, 16, 20) distance to wrist (0)
             const wrist = landmarks[0];
             const tips = [8, 12, 16, 20];
             let avgDist = 0;
-            
             tips.forEach(idx => {
                 const tip = landmarks[idx];
-                const d = Math.sqrt(Math.pow(tip.x - wrist.x, 2) + Math.pow(tip.y - wrist.y, 2));
-                avgDist += d;
+                avgDist += Math.sqrt(Math.pow(tip.x - wrist.x, 2) + Math.pow(tip.y - wrist.y, 2));
             });
-            avgDist /= tips.length;
-            
-            // Threshold for fist (tuned for normalized coordinates)
-            return avgDist < 0.23; 
+            return (avgDist / tips.length) < 0.23;
         }
 
         function isOpenPalm(landmarks) {
-             // Check fingertips (8, 12, 16, 20) distance to wrist (0)
             const wrist = landmarks[0];
             const tips = [8, 12, 16, 20];
             let avgDist = 0;
-            
             tips.forEach(idx => {
                 const tip = landmarks[idx];
-                const d = Math.sqrt(Math.pow(tip.x - wrist.x, 2) + Math.pow(tip.y - wrist.y, 2));
-                avgDist += d;
+                avgDist += Math.sqrt(Math.pow(tip.x - wrist.x, 2) + Math.pow(tip.y - wrist.y, 2));
             });
-            avgDist /= tips.length;
-            
-            // Threshold for open palm (fingers extended)
-            return avgDist > 0.4; 
+            return (avgDist / tips.length) > 0.4;
         }
 
         function spawnChargeParticles(rect) {
+            if (!rect) return;
             const x = rect.left + rect.width / 2;
             const y = rect.top + rect.height / 2;
-            
-            // Spawn multiple particles
-            for(let i=0; i<2; i++) {
+            for (let i = 0; i < 2; i++) {
                 const p = document.createElement('div');
                 p.className = 'particle';
-                
-                // Random offset within card area
                 const ox = (Math.random() - 0.5) * rect.width * 0.9;
                 const oy = (Math.random() - 0.5) * rect.height * 0.9;
-                
                 p.style.left = (x + ox) + 'px';
                 p.style.top = (y + oy) + 'px';
-                
-                // Varied properties
                 const size = 2 + Math.random() * 6;
                 p.style.width = size + 'px';
                 p.style.height = size + 'px';
-                
-                if(Math.random() > 0.6) {
+                if (Math.random() > 0.6) {
                     p.style.background = 'var(--accent-gold)';
                     p.style.boxShadow = '0 0 8px var(--accent-gold)';
                 }
-                
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 800);
             }
@@ -1229,31 +1239,19 @@
             for (let i = 0; i < 5; i++) {
                 const p = document.createElement('div');
                 p.className = 'particle';
-                
-                const x = Math.random() * window.innerWidth;
-                const y = Math.random() * window.innerHeight;
-                
-                p.style.left = x + 'px';
-                p.style.top = y + 'px';
-                
+                p.style.left = (Math.random() * window.innerWidth) + 'px';
+                p.style.top = (Math.random() * window.innerHeight) + 'px';
                 const size = 3 + Math.random() * 8;
                 p.style.width = size + 'px';
                 p.style.height = size + 'px';
-                
                 p.style.background = 'var(--accent-gold)';
                 p.style.boxShadow = '0 0 10px var(--accent-gold)';
                 p.style.opacity = '0.8';
                 p.style.zIndex = '9999';
-                
-                // Animation: Float up
                 p.animate([
                     { transform: 'translateY(0) scale(1)', opacity: 0.8 },
                     { transform: `translateY(-100px) scale(0)`, opacity: 0 }
-                ], {
-                    duration: 1000 + Math.random() * 1000,
-                    easing: 'ease-out'
-                });
-                
+                ], { duration: 1000 + Math.random() * 1000, easing: 'ease-out' });
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 2000);
             }
@@ -1264,7 +1262,6 @@
             trail.className = 'cursor-trail';
             trail.style.left = x + 'px';
             trail.style.top = y + 'px';
-            // Random colors for coolness
             const hue = (Date.now() / 10) % 360;
             trail.style.background = `hsla(${hue}, 80%, 60%, 0.8)`;
             trail.style.boxShadow = `0 0 10px hsla(${hue}, 80%, 60%, 0.8)`;
@@ -1272,313 +1269,191 @@
             setTimeout(() => trail.remove(), 500);
         }
 
-        function updateChargeVisuals(isActive, x, y, progress) {
-            const ring = document.getElementById('charge-ring');
-            // Disable ring visual as requested (red circle)
-            ring.style.opacity = '0';
-            ring.style.display = 'none';
-            return;
-            
-            /* Previous logic disabled
-            if (!isActive) {
-                ring.style.opacity = '0';
-                ring.style.transform = `translate(-50%, -50%) scale(0)`;
-                return;
-            }
-            
-            ring.style.left = x + 'px';
-            ring.style.top = y + 'px';
-            ring.style.opacity = '1';
-            // Scale from 0.5 to 1.5 based on progress
-            const scale = 0.5 + progress; 
-            ring.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            
-            // Change color based on progress
-            const r = 212 + (255-212)*progress;
-            const g = 175 - 175*progress; // Turn redder? Or whiter? Let's go Gold to White
-            const b = 55 + (255-55)*progress;
-            ring.style.borderColor = `rgb(${r},${g},${b})`;
-            */
-        }
-
         function handleGesture(handLandmarks) {
-            // Allow processing in INTERPRETING and IDLE state too
             if (currentState !== STATE.PICKING && currentState !== STATE.INTERPRETING && currentState !== STATE.IDLE) return;
-            
-            const palm = handLandmarks[9]; 
-            const x = palm.x; 
+
+            const palm = handLandmarks[9];
+            const x = palm.x;
             const y = palm.y;
 
-            // Initialize lastHandX if needed
             if (lastHandX === -1) {
-                lastHandX = x;
-                lastHandY = y;
+                lastHandX = x; lastHandY = y;
                 return;
             }
 
-            // Update Cursor Visuals
             const cursor = document.getElementById('hand-cursor');
-            const screenX = (1 - x) * window.innerWidth; // Mirror X
+            const screenX = (1 - x) * window.innerWidth; 
             const screenY = y * window.innerHeight;
-            
+
             cursor.style.display = 'block';
             cursor.style.left = screenX + 'px';
             cursor.style.top = screenY + 'px';
 
-            // Always spawn trail for "cool" factor when moving
-            const distMoved = Math.sqrt(Math.pow(x - lastHandX, 2) + Math.pow(y - lastHandY, 2));
-            if (distMoved > 0.005) {
+            if (Math.sqrt(Math.pow(x - lastHandX, 2) + Math.pow(y - lastHandY, 2)) > 0.005) {
                 spawnTrail(screenX, screenY);
             }
 
-            // --- START & INTERPRETATION LOGIC ---
+            // --- IDLE & INTERPRETING STATE ---
             if (currentState === STATE.IDLE || currentState === STATE.INTERPRETING) {
                 const progressContainer = document.getElementById('charge-progress-container');
                 const progressBar = document.getElementById('charge-progress-bar');
-                
+
                 if (isOpenPalm(handLandmarks)) {
                     if (!isPalmHeld) {
                         isPalmHeld = true;
                         palmHoldStart = Date.now();
-                        // Show progress bar
-                        progressContainer.style.display = 'block';
-                        progressBar.style.width = '0%';
+                        if(progressContainer) {
+                            progressContainer.style.display = 'block';
+                            progressBar.style.width = '0%';
+                        }
                     }
-                    
                     const elapsed = Date.now() - palmHoldStart;
                     const progress = Math.min(elapsed / INTERPRET_HOLD_TIME, 1.0);
-                    
-                    // Visuals
                     if (Math.random() < 0.5) spawnInterpretationParticles();
-                    
-                    // Update Progress Bar
-                    progressBar.style.width = (progress * 100) + '%';
-                    
+                    if(progressBar) progressBar.style.width = (progress * 100) + '%';
+
                     if (elapsed > INTERPRET_HOLD_TIME) {
-                        // Trigger Action
                         if (currentState === STATE.IDLE) {
                             startGame();
                         } else {
                             const token = localStorage.getItem('deepseek_token');
-                            if (token) {
-                                 getAIInterpretation(token);
-                            }
+                            if (token) getAIInterpretation(token);
                         }
-                        
-                        // Reset vars but keep state (modal will handle overlay)
                         isPalmHeld = false;
-                        palmHoldStart = 0;
-                        progressContainer.style.display = 'none';
+                        if(progressContainer) progressContainer.style.display = 'none';
                     }
                 } else {
                     if (isPalmHeld) {
                         isPalmHeld = false;
-                        palmHoldStart = 0;
-                        
-                        // Reset Visuals
-                        progressContainer.style.display = 'none';
-                        progressBar.style.width = '0%';
-
+                        if(progressContainer) progressContainer.style.display = 'none';
                         if (currentState === STATE.IDLE) {
-                             updateIdleStatus();
+                            updateIdleStatus();
                         } else {
-                             document.getElementById('status-text').innerText = "张开你的五指，解读牌面";
+                            document.getElementById('status-text').innerText = "张开五指，开启命运解读";
                         }
                     }
                 }
-                lastHandX = x;
-                lastHandY = y;
-                return; // Skip picking logic
+                lastHandX = x; lastHandY = y;
+                return;
             }
 
-            // --- ZONE BASED LOGIC (Replaced Movement Logic) ---
+            // --- PICKING STATE ZONE SCROLL ---
             const width = window.innerWidth;
             let targetV = 0;
-            const MAX_SCROLL_SPEED = 0.2; // Max speed at edge of screen
-            
+
             if (screenX < width * 0.33) {
-                // LEFT ZONE (0 - 1/3)
-                // Speed increases as we get closer to the left edge (0)
-                const distFromCenter = (width * 0.33) - screenX;
-                const maxDist = width * 0.33;
-                const intensity = Math.min(distFromCenter / maxDist, 1.0); // 0 to 1
-                
+                const intensity = Math.min(((width * 0.33) - screenX) / (width * 0.33), 1.0);
                 targetV = -intensity * MAX_SCROLL_SPEED;
                 highlightDirection('left');
             } else if (screenX > width * 0.66) {
-                // RIGHT ZONE (2/3 - 1)
-                // Speed increases as we get closer to the right edge (width)
-                const distFromCenter = screenX - (width * 0.66);
-                const maxDist = width * 0.34;
-                const intensity = Math.min(distFromCenter / maxDist, 1.0); // 0 to 1
-                
+                const intensity = Math.min((screenX - (width * 0.66)) / (width * 0.34), 1.0);
                 targetV = intensity * MAX_SCROLL_SPEED;
                 highlightDirection('right');
             } else {
-                // CENTER ZONE (1/3 - 2/3)
-                // Stop Scrolling
                 targetV = 0;
-                
-                // Only clear highlights if not selecting
                 if (!isFistHeld) resetHighlights();
             }
-            
-            // Smoothly interpolate velocity towards target
-            // This prevents jerky starts/stops
+
             velocity = velocity * 0.8 + targetV * 0.2;
 
-            // --- SELECTION LOGIC (Middle 1/3 + 1s Hold) ---
+            // --- SELECTION LOGIC ---
             const inCenterZone = screenX > width * 0.33 && screenX < width * 0.66;
             const fistDetected = isFist(handLandmarks);
 
             if (fistDetected && inCenterZone) {
-                // Cursor stays same shape/color
-                
                 if (!isFistHeld) {
-                    // Start Holding
                     isFistHeld = true;
                     fistHoldStart = Date.now();
                     lockedSelectIndex = Math.round(currentIndex);
                     chargeTargetIndex = lockedSelectIndex;
-                    chargeExtraScale = 1;
                     highlightDirection('select');
                 }
-                
-                // Calculate Progress
+
                 const elapsed = Date.now() - fistHoldStart;
                 const progress = Math.min(elapsed / SELECTION_HOLD_TIME, 1.0);
                 chargeExtraScale = 1 + progress * 0.15;
-                
-                // Glow Effect on Target Card
+
                 const targetIdx = lockedSelectIndex ?? Math.round(currentIndex);
                 const cards = document.querySelectorAll('.card-wrapper');
+                
                 cards.forEach(card => {
                     if (parseInt(card.dataset.index) === targetIdx) {
-                        // White glow increasing with progress - Intensified
                         const glowSize = 30 + (progress * 100);
-                        const glowAlpha = 0.8 + (progress * 0.2); // Starts bright, stays bright
-                        // Multiple layers for intense glow
-                        card.style.boxShadow = `
-                            0 0 ${glowSize}px rgba(255, 255, 255, ${glowAlpha}),
-                            0 0 ${glowSize * 0.5}px rgba(255, 255, 255, 1),
-                            inset 0 0 30px rgba(255, 255, 255, 0.5)
-                        `;
-                        card.style.filter = `brightness(${1 + progress * 1.5})`; // Make it blindingly bright
-                        card.style.zIndex = 2000; // Ensure on top
-                        
-                        // Spawn Particles
+                        const glowAlpha = 0.8 + (progress * 0.2);
+                        card.style.boxShadow = `0 0 ${glowSize}px rgba(255, 255, 255, ${glowAlpha}), 0 0 ${glowSize * 0.5}px rgba(255, 255, 255, 1)`;
+                        card.style.filter = `brightness(${1 + progress * 1.5})`;
+                        card.style.zIndex = 2000;
                         spawnChargeParticles(card.getBoundingClientRect());
-                        
-                    } else {
-                         // Reset others if needed, though usually handled in updateCardPositions
-                         // We should let updateCardPositions handle base state, but here we override.
-                         card.style.filter = ''; // Reset filter
-                         card.style.boxShadow = ''; // Reset shadow
                     }
                 });
 
-                updateChargeVisuals(true, screenX, screenY, progress);
-                
                 if (elapsed > SELECTION_HOLD_TIME) {
-                    // Trigger Selection
                     selectCard();
-                    
-                    // Reset
                     isFistHeld = false;
-                    fistHoldStart = 0;
-                    lockedSelectIndex = null;
                     chargeTargetIndex = null;
-                    chargeExtraScale = 1;
-                    updateChargeVisuals(false);
-                    
-                    // Cleanup any remaining glow immediately on select (or keep it as feedback?)
-                    // Actually selectCard hides the card, so we are fine.
-                    
-                    // Success Burst
                     const ring = document.createElement('div');
                     ring.style.position = 'absolute';
-                    ring.style.left = screenX + 'px';
-                    ring.style.top = screenY + 'px';
-                    ring.style.width = '100px';
-                    ring.style.height = '100px';
-                    ring.style.border = '4px solid white';
-                    ring.style.borderRadius = '50%';
+                    ring.style.left = screenX + 'px'; ring.style.top = screenY + 'px';
+                    ring.style.width = '100px'; ring.style.height = '100px';
+                    ring.style.border = '4px solid white'; ring.style.borderRadius = '50%';
                     ring.style.transform = 'translate(-50%, -50%)';
-                    ring.style.animation = 'pulseRing 0.5s ease-out'; 
+                    ring.style.animation = 'pulseRing 0.5s ease-out';
                     document.body.appendChild(ring);
                     setTimeout(() => ring.remove(), 500);
                 }
-                
             } else {
-                // cursor.classList.remove('grabbing');
                 if (isFistHeld) {
-                    // Cancelled
                     isFistHeld = false;
-                    fistHoldStart = 0;
-                    lockedSelectIndex = null;
                     chargeTargetIndex = null;
-                    chargeExtraScale = 1;
-                    updateChargeVisuals(false);
                     resetHighlights();
-                    
-                    // Reset card styles immediately
-                    const cards = document.querySelectorAll('.card-wrapper');
-                    cards.forEach(card => {
-                        card.style.filter = '';
-                        card.style.boxShadow = '';
+                    document.querySelectorAll('.card-wrapper').forEach(card => {
+                        card.style.filter = ''; card.style.boxShadow = '';
                     });
                 }
             }
-            
-            lastHandX = x;
-            lastHandY = y;
+
+            lastHandX = x; lastHandY = y;
         }
 
-        let targetIndex = 0; // Target for intro animation
+        let targetIndex = 0; 
 
         function gameLoop() {
             if (currentState === STATE.INTRO) {
-                // Smoothly interpolate currentIndex to targetIndex
                 const dist = targetIndex - currentIndex;
-                // Exponential ease out
                 currentIndex += dist * 0.05;
-                
-                // Check if close enough to stop intro
                 if (Math.abs(dist) < 0.1) {
                     currentIndex = targetIndex;
                     currentState = STATE.PICKING;
-                    document.getElementById('status-text').innerText = "握拳选中你的命运之牌";
-                    // Show picked zone slots
+                    document.getElementById('status-text').innerText = "左右移动双手浏览，中区握拳选牌";
                     document.getElementById('picked-zone').style.display = 'flex';
                 }
                 updateCardPositions();
             }
-            
+
             if (currentState === STATE.PICKING) {
                 if (isFistHeld && lockedSelectIndex !== null) {
                     currentIndex = lockedSelectIndex;
                     velocity = 0;
                 } else {
-                    // Apply Velocity
                     currentIndex += velocity;
-                    
-                    // Apply Friction
                     velocity *= FRICTION;
-                    
-                    // Stop if very slow
-                    if (Math.abs(velocity) < 0.0001) velocity = 0;
 
-                    // Bounds Checking with Bounce/Damping
+                    if (Math.abs(velocity) < 0.015 && Math.abs(velocity) > 0) {
+                        const nearestIndex = Math.round(currentIndex);
+                        currentIndex += (nearestIndex - currentIndex) * 0.08;
+                        if (Math.abs(nearestIndex - currentIndex) < 0.002) {
+                            currentIndex = nearestIndex;
+                            velocity = 0;
+                        }
+                    }
+
                     if (currentIndex < 0) {
-                        currentIndex = 0;
-                        velocity = -velocity * 0.5; // Bounce
+                        currentIndex = 0; velocity = -velocity * 0.4;
                     }
                     if (currentIndex > currentDeck.length - 1) {
-                        currentIndex = currentDeck.length - 1;
-                        velocity = -velocity * 0.5; // Bounce
+                        currentIndex = currentDeck.length - 1; velocity = -velocity * 0.4;
                     }
                 }
-                
                 updateCardPositions();
             }
             requestAnimationFrame(gameLoop);
@@ -1586,30 +1461,29 @@
 
         function highlightDirection(dir) {
             resetHighlights();
-            if (dir === 'left') document.getElementById('zone-right').classList.add('active'); // Visual Right is Swipe Left source?
-            // Actually let's just highlight the side corresponding to movement
-            // Hand moves Left -> Highlight Left Zone
-            if (dir === 'left') document.getElementById('zone-left').classList.add('active'); // Wait, Left Zone is visually on Left
+            if (dir === 'left') document.getElementById('zone-left').classList.add('active');
             if (dir === 'right') document.getElementById('zone-right').classList.add('active');
             if (dir === 'select') {
                 document.getElementById('zone-center').classList.add('active');
                 document.getElementById('icon-select').classList.add('active');
             }
         }
-        
+
         function resetHighlights() {
-            document.getElementById('zone-left').classList.remove('active');
-            document.getElementById('zone-right').classList.remove('active');
-            document.getElementById('zone-center').classList.remove('active');
-            document.getElementById('icon-select').classList.remove('active');
+            const zl = document.getElementById('zone-left');
+            const zr = document.getElementById('zone-right');
+            const zc = document.getElementById('zone-center');
+            const ic = document.getElementById('icon-select');
+            if(zl) zl.classList.remove('active');
+            if(zr) zr.classList.remove('active');
+            if(zc) zc.classList.remove('active');
+            if(ic) ic.classList.remove('active');
         }
 
-        // Start Loop
         requestAnimationFrame(gameLoop);
 
         function navigateDeck(dir) {
-            // Keyboard support updates velocity for consistency
-            velocity += dir * 0.1;
+            velocity += dir * 0.15;
             if (dir < 0) highlightDirection('left');
             if (dir > 0) highlightDirection('right');
             setTimeout(resetHighlights, 200);
@@ -1617,35 +1491,22 @@
 
         function selectCard() {
             if (currentState !== STATE.PICKING) return;
-            
-            // Select the card currently at the integer center
+
             const selectedIdxInt = Math.round(currentIndex);
-            
-            // Check if valid
             if (selectedIdxInt < 0 || selectedIdxInt >= currentDeck.length) return;
-            
-            // Check if already picked (though we remove them from flow usually)
-            // But with splicing logic, we need to be careful.
-            // New logic: We DON'T splice. We just mark them.
-            
+
             const selectedCard = currentDeck[selectedIdxInt];
-            
-            // Check if this specific card ID is already picked
             if (pickedCards.some(p => p.card.id === selectedCard.id)) return;
-            
-            // Mark visually in the deck
+
+            // 【优化】：利用真实卡牌数据状态隐藏，防止 DOM 结构匹配硬性错位
             const cardElements = document.querySelectorAll('.card-wrapper');
-            let sourceRect = null;
-            
             cardElements.forEach(el => {
                 if (parseInt(el.dataset.index) === selectedIdxInt) {
                     el.classList.add('picked');
-                    el.style.opacity = '0'; // Hide from deck
-                    sourceRect = el.getBoundingClientRect();
+                    el.style.opacity = '0'; 
                 }
             });
 
-            // Add to picked list
             const isReversed = Math.random() < 0.3;
             pickedCards.push({
                 card: selectedCard,
@@ -1653,18 +1514,15 @@
                 position: ['过去', '现在', '未来'][pickedCards.length]
             });
 
-            // Update Status
             document.getElementById('status-text').innerText = `已选卡牌 ${pickedCards.length}/3`;
 
-            // Animate to Slot
             const slotIndex = pickedCards.length - 1;
             const slot = document.getElementById(`slot-${slotIndex}`);
             if (slot) {
                 slot.classList.add('filled');
                 const miniCard = document.createElement('div');
                 miniCard.className = 'mini-card';
-                miniCard.style.backgroundImage = `url('https://www.transparenttextures.com/patterns/black-scales.png')`; // Back of card
-                // Add star effect or something
+                miniCard.style.backgroundImage = `url('https://www.transparenttextures.com/patterns/black-scales.png')`; 
                 miniCard.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;color:rgba(212,175,55,0.5);">✦</div>`;
                 slot.appendChild(miniCard);
             }
@@ -1677,115 +1535,67 @@
         function finishPicking() {
             currentState = STATE.REVEALING;
             document.getElementById('status-text').innerText = "命运已揭示";
-            document.getElementById('gesture-guide').style.opacity = '0';
-            
-            // Hide picked zone (we will move them to center scene)
-            document.getElementById('picked-zone').style.opacity = '0';
-            
-            renderDeck(); // Will switch to reveal layout
-            
+            const guide = document.getElementById('gesture-guide');
+            const zone = document.getElementById('picked-zone');
+            if (guide) guide.style.opacity = '0';
+            if (zone) zone.style.opacity = '0';
+
+            renderDeck(); 
+
             setTimeout(() => {
-                // All cards revealed after animation
                 currentState = STATE.INTERPRETING;
                 const token = localStorage.getItem('deepseek_token');
                 if (token) {
-                    // Gesture instruction instead of button
                     document.getElementById('status-text').innerText = "张开五指，开启命运解读";
                 } else {
                     document.getElementById('status-text').innerText = "命运已定 (配置 Token 可获取 AI 解读)";
                 }
             }, 2500);
         }
-        
-        function showSimpleMeaning() {
-             const modal = document.getElementById('interpretation-modal');
-             const content = document.getElementById('interpretation-content');
-             
-             let html = '';
-             pickedCards.forEach(p => {
-                 html += `<h3>${p.position}: ${p.card.name} ${p.reversed ? '(逆位)' : '(正位)'}</h3>`;
-                 html += `<p>这张牌象征着你 ${p.position} 的关键影响。(配置 AI 令牌以获取详细解读)</p>`;
-             });
-             
-             content.innerHTML = html;
-             modal.style.display = 'block';
-        }
 
-        // --- 5. MediaPipe Setup ---
         async function setupCamera() {
             const videoElement = document.getElementById('webcam-preview');
-            
-            const hands = new Hands({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }});
-            
+            const hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
             hands.setOptions({
                 maxNumHands: 1,
                 modelComplexity: 1,
                 minDetectionConfidence: 0.7,
                 minTrackingConfidence: 0.7
             });
-            
+
             hands.onResults((results) => {
                 if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                     handleGesture(results.multiHandLandmarks[0]);
                 }
             });
-            
+
             const camera = new Camera(videoElement, {
                 onFrame: async () => {
-                    await hands.send({image: videoElement});
+                    await hands.send({ image: videoElement });
                 },
-                width: 320,
-                height: 240
+                width: 320, height: 240
             });
-            
+
             return camera;
         }
 
-        // --- 6. AI Integration ---
         async function getAIInterpretation(token) {
+            const interpretBtn = document.getElementById('interpret-btn');
+            if (interpretBtn) interpretBtn.style.display = 'none';
             document.getElementById('loading-spinner').style.display = 'block';
-            
+
             const prompt = `你是一位精通神秘学、荣格心理学与象征符号的资深塔罗占卜师。我抽取了三张牌，分别代表“过去”、“现在”和“未来”（时间之流牌阵）。
-            
-            1. 过去 (The Past): ${pickedCards[0].card.name} (${pickedCards[0].reversed ? '逆位 (Reversed)' : '正位 (Upright)'})
-            2. 现在 (The Present): ${pickedCards[1].card.name} (${pickedCards[1].reversed ? '逆位 (Reversed)' : '正位 (Upright)'})
-            3. 未来 (The Future): ${pickedCards[2].card.name} (${pickedCards[2].reversed ? '逆位 (Reversed)' : '正位 (Upright)'})
-            
-            请用中文（简体）为我解读这组牌阵。你的语言风格应当神秘、优雅、富有哲理且充满同理心，仿佛在与灵魂对话。
-            
-            请按以下 Markdown 格式输出：
-            
-            ### 🔮 整体启示
-            （用一段充满意境的引言，总结这三张牌共同构成的能量场或核心主题，100字左右）
-            
-            ---
-            
-            ### 🃏 牌面深度解析
-            
-            #### 1. 过去之因：${pickedCards[0].card.name} ${pickedCards[0].reversed ? '(逆)' : '(正)'}
-            *   **牌面意象**：（简述牌面视觉元素及其象征意义）
-            *   **核心含义**：（解读这张牌在“过去”位置的含义，它如何影响了当下的局面）
-            
-            #### 2. 当下之境：${pickedCards[1].card.name} ${pickedCards[1].reversed ? '(逆)' : '(正)'}
-            *   **牌面意象**：（简述牌面视觉元素及其象征意义）
-            *   **核心含义**：（解读这张牌在“现在”位置的含义，揭示当前面临的挑战或机遇）
-            
-            #### 3. 未来之果：${pickedCards[2].card.name} ${pickedCards[2].reversed ? '(逆)' : '(正)'}
-            *   **牌面意象**：（简述牌面视觉元素及其象征意义）
-            *   **核心含义**：（解读这张牌在“未来”位置的含义，预测可能的发展趋势）
-            
-            ---
-            
-            ### 💡 命运指引
-            （综合三张牌，给出具体且富有启发性的建议。不仅限于预测，更要引导求问者如何行动或调整心态以趋吉避凶。）
-            
-            > （最后附上一句简短而有力的祝福或箴言）`;
+            1. 过去: ${pickedCards[0].card.name} (${pickedCards[0].reversed ? '逆位' : '正位'})
+            2. 现在: ${pickedCards[1].card.name} (${pickedCards[1].reversed ? '逆位' : '正位'})
+            3. 未来: ${pickedCards[2].card.name} (${pickedCards[2].reversed ? '逆位' : '正位'})
+            请用中文（简体）为我解读这组牌阵。输出包含：整体启示、牌面深度解析、命运指引。`;
 
             const modal = document.getElementById('interpretation-modal');
             const content = document.getElementById('interpretation-content');
-            content.innerHTML = ''; 
+            content.innerHTML = '';
             modal.style.display = 'block';
 
             try {
@@ -1796,17 +1606,17 @@
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        model: "deepseek-chat", 
+                        model: "deepseek-chat",
                         messages: [
-                            {"role": "system", "content": "你是一位精通神秘学、心理学与象征符号的资深塔罗占卜师。你的语言风格神秘、优雅、富有哲理且充满同理心。请用中文为求问者解读牌面，不仅要解释牌面的表层含义，更要深入剖析其背后的心理投射与灵性指引。"},
-                            {"role": "user", "content": prompt}
+                            { "role": "system", "content": "你是一位精通神秘学与心理学的资深塔罗占卜师。" },
+                            { "role": "user", "content": prompt }
                         ],
                         stream: true
                     })
                 });
-                
-                if (!response.ok) throw new Error("神谕连接失败: " + response.statusText);
-                
+
+                if (!response.ok) throw new Error("神谕连接失败");
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder("utf-8");
                 let fullText = "";
@@ -1814,10 +1624,10 @@
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    
+
                     const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
-                    
+
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const jsonStr = line.slice(6);
@@ -1832,150 +1642,101 @@
                                         content.textContent = fullText;
                                     }
                                 }
-                            } catch (e) {
-                                // console.error("Error parsing stream:", e);
-                            }
+                            } catch (e) {}
                         }
                     }
                 }
-
                 document.getElementById('status-text').innerText = "命运已揭晓";
-                
             } catch (e) {
-                console.error(e);
-                alert("咨询神谕失败: " + e.message);
                 content.innerHTML += `<p style="color:red">连接中断: ${e.message}</p>`;
-                // showSimpleMeaning(); // Optional fallback
             } finally {
                 document.getElementById('loading-spinner').style.display = 'none';
             }
         }
 
         // --- 7. Initialization ---
-        // Settings Modal Logic
         const settingsBtn = document.getElementById('settings-btn');
         const settingsModal = document.getElementById('settings-modal');
         const saveSettingsBtn = document.getElementById('save-settings-btn');
         const closeSettingsBtn = document.getElementById('close-settings-btn');
         const tokenInput = document.getElementById('api-token-input');
-        const tokenStatus = document.getElementById('token-status');
 
         function updateTokenStatus() {
             const token = localStorage.getItem('deepseek_token');
-            if (token) {
-                tokenInput.value = token;
-            } else {
-                tokenInput.value = "";
-            }
+            if (token) tokenInput.value = token;
         }
 
-        // Load token on init
         updateTokenStatus();
 
-        settingsBtn.addEventListener('click', () => {
-            updateTokenStatus();
-            settingsModal.style.display = 'block';
-        });
+        if(settingsBtn) settingsBtn.addEventListener('click', () => { updateTokenStatus(); settingsModal.style.display = 'block'; });
+        if(closeSettingsBtn) closeSettingsBtn.addEventListener('click', () => { settingsModal.style.display = 'none'; });
 
-        closeSettingsBtn.addEventListener('click', () => {
-            settingsModal.style.display = 'none';
-        });
-
-        saveSettingsBtn.addEventListener('click', () => {
-            const apiToken = sk-b0fe6c0adf7b43bea5d1a643159887bd;
+        if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', () => {
+            const apiToken = tokenInput.value.trim();
+            if (!apiToken) { alert("请输入有效的 Token"); return; }
             localStorage.setItem('deepseek_token', apiToken);
             updateTokenStatus();
-            
             settingsModal.style.display = 'none';
             alert("配置已保存到本地");
-            
-            // Update UI if in INTERPRETING state
-            if (currentState === STATE.INTERPRETING) {
-                 const btn = document.getElementById('interpret-btn');
-                 if (apiToken) {
-                     btn.style.display = 'inline-block';
-                     btn.onclick = () => getAIInterpretation(apiToken);
-                     document.getElementById('status-text').innerText = "命运已定 (点击解读按钮)";
-                 } else {
-                     btn.style.display = 'none';
-                     document.getElementById('status-text').innerText = "命运已定 (配置 Token 可获取 AI 解读)";
-                 }
-            }
         });
 
         function startGame() {
-            if (assetsFailed) {
-                preloadDeckAssets();
-                return;
-            }
-            if (!assetsReady) {
-                updateIdleStatus();
-                return;
-            }
-            document.getElementById('start-btn').style.display = 'none';
+            if (assetsFailed) { preloadDeckAssets(); return; }
+            if (!assetsReady) { updateIdleStatus(); return; }
+            
+            const startBtn = document.getElementById('start-btn');
+            if(startBtn) startBtn.style.display = 'none';
             document.getElementById('status-text').innerText = "命运之轮开始转动...";
-            
-            // Start Game Flow
-            currentDeck = shuffle([...FULL_DECK]); // Shuffle internal data
+
+            currentDeck = shuffle([...FULL_DECK]); 
             pickedCards = [];
-            
-            // INTRO ANIMATION
+
             currentState = STATE.INTRO;
-            targetIndex = Math.floor(currentDeck.length / 2); 
-            currentIndex = currentDeck.length + 5; // Start way off
-            
-            renderDeck(); // Render cards
-            updateCardPositions(); // Initial position update
+            targetIndex = Math.floor(currentDeck.length / 2);
+            currentIndex = currentDeck.length + 5; 
+
+            // 激活区域手势提示可见性
+            const guide = document.getElementById('gesture-guide');
+            if(guide) { guide.style.display = 'flex'; guide.style.opacity = '1'; }
+
+            renderDeck(); 
         }
 
         async function initCameraFlow() {
-             try {
+            try {
                 const camera = await setupCamera();
                 await camera.start();
-                
-                // Camera success
-                cameraReady = true;
-                cameraError = false;
-                document.getElementById('start-btn').style.display = 'none';
+                cameraReady = true; cameraError = false;
+                const startBtn = document.getElementById('start-btn');
+                if(startBtn) startBtn.style.display = 'none';
                 updateIdleStatus();
-             } catch (e) {
-                console.error(e);
-                cameraReady = false;
-                cameraError = true;
+            } catch (e) {
+                cameraReady = false; cameraError = true;
                 document.getElementById('status-text').innerText = "需要摄像头权限以进行手势控制";
                 const btn = document.getElementById('start-btn');
-                btn.style.display = 'block';
-                btn.innerText = "允许摄像头";
-                btn.onclick = () => {
-                    initCameraFlow(); // Retry
-                };
-             }
+                if(btn) {
+                    btn.style.display = 'block';
+                    btn.innerText = "允许摄像头";
+                    btn.onclick = () => initCameraFlow();
+                }
+            }
         }
-        
-        // Auto-start camera on load
+
         preloadDeckAssets();
         initCameraFlow();
 
-        // Initialize Background
-        initStars();
-        
-        // Keyboard fallback for testing
         window.addEventListener('keydown', (e) => {
+            if (currentState === STATE.IDLE) {
+                if (e.key === 'Enter' || e.key === ' ') startGame();
+                return;
+            }
             if (currentState !== STATE.PICKING) return;
-            if (e.key === 'ArrowLeft') {
-                navigateDeck(-1);
-                highlightIcon('icon-left');
-            }
-            if (e.key === 'ArrowRight') {
-                navigateDeck(1);
-                highlightIcon('icon-right');
-            }
-            if (e.key === 'ArrowUp' || e.key === ' ') {
-                selectCard();
-                highlightIcon('icon-select');
-            }
+            
+            if (e.key === 'ArrowLeft') { navigateDeck(-1); }
+            if (e.key === 'ArrowRight') { navigateDeck(1); }
+            if (e.key === 'ArrowUp' || e.key === ' ') { selectCard(); highlightDirection('select'); }
         });
-
     </script>
 </body>
+
 </html>
